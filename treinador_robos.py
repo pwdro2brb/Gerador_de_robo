@@ -388,8 +388,20 @@ class TreinadorRobos:
 
             elif tipo == "tecla":
                 tecla = acao.get("tecla")
+
                 if tecla:
-                    linhas.append(f"    pyautogui.press('{tecla}')")
+                    tecla = str(tecla).strip().lower()
+
+                    if "+" in tecla:
+                        partes = [p.strip() for p in tecla.split("+") if p.strip()]
+                        partes_repr = ", ".join(repr(p) for p in partes)
+                        linhas.append(f"    pyautogui.hotkey({partes_repr})")
+                    else:
+                        linhas.append(f"    pyautogui.press('{tecla}')")
+
+            elif tipo == "espera":
+                segundos = float(acao.get("segundos", 1) or 1)
+                linhas.append(f"    time.sleep({round(segundos, 3)})")
 
             elif tipo == "scroll":
                 x = int(acao.get("x", 0))
@@ -551,7 +563,7 @@ class RevisorTreinamento:
 
         frame_botoes_editor = tk.Frame(frame_editor)
         frame_botoes_editor.grid(row=linha, column=0, columnspan=2, sticky="ew", padx=8, pady=10)
-        frame_botoes_editor.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        frame_botoes_editor.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
 
         tk.Button(
             frame_botoes_editor,
@@ -567,19 +579,36 @@ class RevisorTreinamento:
 
         tk.Button(
             frame_botoes_editor,
-            text="Excluir etapa",
-            command=self._excluir_etapa
+            text="Adicionar tecla",
+            command=self._adicionar_tecla
         ).grid(row=0, column=2, sticky="ew", padx=4)
 
         tk.Button(
             frame_botoes_editor,
-            text="Duplicar etapa",
-            command=self._duplicar_etapa
+            text="Adicionar espera",
+            command=self._adicionar_espera
         ).grid(row=0, column=3, sticky="ew", padx=4)
 
+        tk.Button(
+            frame_botoes_editor,
+            text="Subir",
+            command=self._subir_etapa
+        ).grid(row=0, column=4, sticky="ew", padx=4)
+
+        tk.Button(
+            frame_botoes_editor,
+            text="Descer",
+            command=self._descer_etapa
+        ).grid(row=0, column=5, sticky="ew", padx=4)
+
+        tk.Button(
+            frame_botoes_editor,
+            text="Excluir",
+            command=self._excluir_etapa
+        ).grid(row=0, column=6, sticky="ew", padx=4)
         frame_botoes_finais = tk.Frame(self.root)
         frame_botoes_finais.grid(row=2, column=0, columnspan=2, sticky="ew", padx=14, pady=(0, 14))
-        frame_botoes_finais.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        frame_botoes_finais.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
         tk.Button(
             frame_botoes_finais,
@@ -605,6 +634,12 @@ class RevisorTreinamento:
             command=self.root.destroy
         ).grid(row=0, column=3, sticky="ew", padx=4)
 
+        tk.Button(
+            frame_botoes_finais,
+            text="Abrir pasta",
+            command=self._abrir_pasta_treinamento
+        ).grid(row=0, column=4, sticky="ew", padx=4)
+
     def _campo_readonly(self, parent, label, var, row):
         tk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=8, pady=6)
         entry = tk.Entry(parent, textvariable=var, state="readonly")
@@ -628,9 +663,6 @@ class RevisorTreinamento:
                 valor = valor[:35] + "..."
             return f"{idx:03d} [{ativo}] TEXTO  {repr(valor)}"
 
-        if tipo == "tecla":
-            return f"{idx:03d} [{ativo}] TECLA  {acao.get('tecla')}"
-
         if tipo == "scroll":
             return f"{idx:03d} [{ativo}] SCROLL amount={acao.get('scroll_amount')} x={acao.get('x')} y={acao.get('y')}"
 
@@ -639,6 +671,12 @@ class RevisorTreinamento:
 
         if tipo == "fim":
             return f"{idx:03d} [{ativo}] FIM"
+
+        if tipo == "espera":
+            return f"{idx:03d} [{ativo}] ESPERA {acao.get('segundos', 1)}s"
+
+        if tipo == "tecla":
+            return f"{idx:03d} [{ativo}] TECLA  {acao.get('tecla')}"
 
         return f"{idx:03d} [{ativo}] {tipo.upper()}"
 
@@ -660,11 +698,19 @@ class RevisorTreinamento:
         self.var_tipo.set(acao.get("tipo", ""))
         self.var_descricao.set(acao.get("descricao", ""))
         self.var_delay.set(str(acao.get("delay", 0)))
-        self.var_texto.set(str(acao.get("valor", "")))
+
+        if acao.get("tipo") == "espera":
+            self.var_texto.set(str(acao.get("segundos", "")))
+        else:
+            self.var_texto.set(str(acao.get("valor", "")))
+
         self.var_x.set(str(acao.get("x", "")))
         self.var_y.set(str(acao.get("y", "")))
         self.var_scroll.set(str(acao.get("scroll_amount", "")))
         self.var_ativo.set(bool(acao.get("ativo", True)))
+
+        if acao.get("tipo") == "espera":
+            self.var_texto.set(str(acao.get("segundos", "")))
 
     def _salvar_edicao(self):
         if self.indice_atual is None:
@@ -686,6 +732,13 @@ class RevisorTreinamento:
         if tipo == "texto":
             acao["valor"] = self.var_texto.get()
 
+        if tipo == "espera":
+            try:
+                acao["segundos"] = float(self.var_texto.get().replace(",", "."))
+            except Exception:
+                messagebox.showwarning("Revisor", "Tempo de espera inválido.")
+                return
+
         if tipo in ["click", "scroll"]:
             try:
                 if self.var_x.get().strip():
@@ -704,7 +757,9 @@ class RevisorTreinamento:
                 return
 
         self._atualizar_lista()
+        self.lista.selection_clear(0, tk.END)
         self.lista.selection_set(self.indice_atual)
+        self.lista.see(self.indice_atual)
 
     def _excluir_etapa(self):
         if self.indice_atual is None:
@@ -732,7 +787,7 @@ class RevisorTreinamento:
         acao_original = self.acoes[self.indice_atual].copy()
         self.acoes.insert(self.indice_atual + 1, acao_original)
         self._atualizar_lista()
-        
+
     def _adicionar_texto(self):
         texto = simpledialog.askstring(
             "Adicionar texto",
@@ -759,6 +814,72 @@ class RevisorTreinamento:
             "descricao": "Texto adicionado manualmente no revisor"
         }
 
+        self._inserir_acao_apos_atual(nova_acao)
+
+    def _adicionar_tecla(self):
+        tecla = simpledialog.askstring(
+            "Adicionar tecla",
+            "Digite a tecla ou combinação.\n\n"
+            "Exemplos:\n"
+            "tab\n"
+            "enter\n"
+            "esc\n"
+            "backspace\n"
+            "delete\n"
+            "ctrl+a\n"
+            "ctrl+c\n"
+            "ctrl+v"
+        )
+
+        if tecla is None:
+            return
+
+        tecla = tecla.strip().lower()
+
+        if not tecla:
+            messagebox.showwarning(
+                "Adicionar tecla",
+                "A tecla não pode ficar vazia."
+            )
+            return
+
+        nova_acao = {
+            "tipo": "tecla",
+            "tecla": tecla,
+            "delay": 0.3,
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "janela": "",
+            "ativo": True,
+            "descricao": "Tecla adicionada manualmente no revisor"
+        }
+
+        self._inserir_acao_apos_atual(nova_acao)
+
+
+    def _adicionar_espera(self):
+        segundos = simpledialog.askfloat(
+            "Adicionar espera",
+            "Digite o tempo de espera em segundos:",
+            minvalue=0.1
+        )
+
+        if segundos is None:
+            return
+
+        nova_acao = {
+            "tipo": "espera",
+            "segundos": float(segundos),
+            "delay": 0,
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "janela": "",
+            "ativo": True,
+            "descricao": "Espera adicionada manualmente no revisor"
+        }
+
+        self._inserir_acao_apos_atual(nova_acao)
+
+
+    def _inserir_acao_apos_atual(self, nova_acao):
         if self.indice_atual is None:
             self.acoes.append(nova_acao)
             novo_indice = len(self.acoes) - 1
@@ -774,6 +895,58 @@ class RevisorTreinamento:
 
         self.indice_atual = novo_indice
         self._ao_selecionar()
+
+
+    def _subir_etapa(self):
+        if self.indice_atual is None:
+            messagebox.showwarning("Revisor", "Selecione uma etapa primeiro.")
+            return
+
+        if self.indice_atual <= 0:
+            return
+
+        idx = self.indice_atual
+
+        self.acoes[idx - 1], self.acoes[idx] = self.acoes[idx], self.acoes[idx - 1]
+        self.indice_atual = idx - 1
+
+        self._atualizar_lista()
+        self.lista.selection_clear(0, tk.END)
+        self.lista.selection_set(self.indice_atual)
+        self.lista.see(self.indice_atual)
+        self._ao_selecionar()
+
+
+    def _descer_etapa(self):
+        if self.indice_atual is None:
+            messagebox.showwarning("Revisor", "Selecione uma etapa primeiro.")
+            return
+
+        if self.indice_atual >= len(self.acoes) - 1:
+            return
+
+        idx = self.indice_atual
+
+        self.acoes[idx + 1], self.acoes[idx] = self.acoes[idx], self.acoes[idx + 1]
+        self.indice_atual = idx + 1
+
+        self._atualizar_lista()
+        self.lista.selection_clear(0, tk.END)
+        self.lista.selection_set(self.indice_atual)
+        self.lista.see(self.indice_atual)
+        self._ao_selecionar()
+
+    def _abrir_pasta_treinamento(self):
+        pasta = self.arquivo_json.parent
+
+        try:
+            os.startfile(pasta)
+        except Exception as e:
+            messagebox.showerror(
+                "Abrir pasta",
+                f"Não foi possível abrir a pasta:\n\n{pasta}\n\nErro:\n{e}"
+            )
+
 
     def _limpar_campos(self):
         self.var_tipo.set("")
