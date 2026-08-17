@@ -3,7 +3,7 @@ import json
 import time
 import datetime
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 from pathlib import Path
 
 import pyautogui
@@ -551,7 +551,7 @@ class RevisorTreinamento:
 
         frame_botoes_editor = tk.Frame(frame_editor)
         frame_botoes_editor.grid(row=linha, column=0, columnspan=2, sticky="ew", padx=8, pady=10)
-        frame_botoes_editor.grid_columnconfigure((0, 1, 2), weight=1)
+        frame_botoes_editor.grid_columnconfigure((0, 1, 2, 3), weight=1)
 
         tk.Button(
             frame_botoes_editor,
@@ -561,15 +561,21 @@ class RevisorTreinamento:
 
         tk.Button(
             frame_botoes_editor,
+            text="Adicionar texto",
+            command=self._adicionar_texto
+        ).grid(row=0, column=1, sticky="ew", padx=4)
+
+        tk.Button(
+            frame_botoes_editor,
             text="Excluir etapa",
             command=self._excluir_etapa
-        ).grid(row=0, column=1, sticky="ew", padx=4)
+        ).grid(row=0, column=2, sticky="ew", padx=4)
 
         tk.Button(
             frame_botoes_editor,
             text="Duplicar etapa",
             command=self._duplicar_etapa
-        ).grid(row=0, column=2, sticky="ew", padx=4)
+        ).grid(row=0, column=3, sticky="ew", padx=4)
 
         frame_botoes_finais = tk.Frame(self.root)
         frame_botoes_finais.grid(row=2, column=0, columnspan=2, sticky="ew", padx=14, pady=(0, 14))
@@ -726,6 +732,48 @@ class RevisorTreinamento:
         acao_original = self.acoes[self.indice_atual].copy()
         self.acoes.insert(self.indice_atual + 1, acao_original)
         self._atualizar_lista()
+        
+    def _adicionar_texto(self):
+        texto = simpledialog.askstring(
+            "Adicionar texto",
+            "Digite o texto que o robô deverá escrever:"
+        )
+
+        if texto is None:
+            return
+
+        if texto == "":
+            messagebox.showwarning(
+                "Adicionar texto",
+                "O texto não pode ficar vazio."
+            )
+            return
+
+        nova_acao = {
+            "tipo": "texto",
+            "valor": texto,
+            "delay": 0.3,
+            "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "janela": "",
+            "ativo": True,
+            "descricao": "Texto adicionado manualmente no revisor"
+        }
+
+        if self.indice_atual is None:
+            self.acoes.append(nova_acao)
+            novo_indice = len(self.acoes) - 1
+        else:
+            self.acoes.insert(self.indice_atual + 1, nova_acao)
+            novo_indice = self.indice_atual + 1
+
+        self._atualizar_lista()
+
+        self.lista.selection_clear(0, tk.END)
+        self.lista.selection_set(novo_indice)
+        self.lista.see(novo_indice)
+
+        self.indice_atual = novo_indice
+        self._ao_selecionar()
 
     def _limpar_campos(self):
         self.var_tipo.set("")
