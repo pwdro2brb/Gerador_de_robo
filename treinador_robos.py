@@ -5,6 +5,8 @@ import datetime
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 from pathlib import Path
+from PIL import Image
+from PIL import ImageTk
 
 import pyautogui
 from pynput import mouse, keyboard
@@ -17,6 +19,10 @@ except Exception:
 
 class TreinadorRobos:
     def __init__(self, pasta_saida=None, capturar_prints=True):
+        self.preview_img = None
+        self.label_preview = None
+        self.label_estatisticas = None
+
         self.pasta_saida = Path(pasta_saida or "robos_treinados")
         self.pasta_saida.mkdir(parents=True, exist_ok=True)
 
@@ -475,6 +481,207 @@ class RevisorTreinamento:
         with open(self.arquivo_json, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    def _mostrar_preview(self, caminho):
+
+        try:
+
+            imagem = Image.open(caminho)
+
+            imagem.thumbnail(
+                (450, 260)
+            )
+
+            foto = ImageTk.PhotoImage(imagem)
+
+            self.label_preview.configure(
+                image=foto
+            )
+
+            self.label_preview.image = foto
+
+        except Exception:
+            pass
+
+    def _executar_acao(self, acao):
+
+        tipo = acao.get("tipo")
+
+        if tipo == "click":
+
+            pyautogui.click(
+                x=int(acao.get("x", 0)),
+                y=int(acao.get("y", 0)),
+                button=acao.get("botao", "left")
+            )
+
+        elif tipo == "texto":
+
+            pyautogui.write(
+                acao.get("valor", ""),
+                interval=0.02
+            )
+
+        elif tipo == "tecla":
+
+            tecla = str(
+                acao.get("tecla", "")
+            ).lower()
+
+            if "+" in tecla:
+
+                partes = [
+                    p.strip()
+                    for p in tecla.split("+")
+                ]
+
+                pyautogui.hotkey(*partes)
+
+            else:
+
+                pyautogui.press(tecla)
+
+        elif tipo == "scroll":
+
+            pyautogui.moveTo(
+                int(acao.get("x", 0)),
+                int(acao.get("y", 0))
+            )
+
+            pyautogui.scroll(
+                int(acao.get("scroll_amount", 0))
+            )
+
+        elif tipo == "espera":
+
+            time.sleep(
+                float(
+                    acao.get("segundos", 1)
+                )
+            )
+
+    def _executar_do_ponto(self):
+
+        if self.indice_atual is None:
+            messagebox.showwarning(
+                "Executar",
+                "Selecione uma etapa."
+            )
+            return
+
+        try:
+
+            for acao in self.acoes[self.indice_atual:]:
+
+                if not acao.get("ativo", True):
+                    continue
+
+                delay = float(
+                    acao.get("delay", 0)
+                )
+
+                if delay > 0:
+                    time.sleep(delay)
+
+                self._executar_acao(acao)
+
+            messagebox.showinfo(
+                "Executar",
+                "Execução concluída."
+            )
+
+        except Exception as e:
+            messagebox.showerror(
+                "Erro",
+                str(e)
+            )
+
+    def _atualizar_estatisticas(self):
+
+        clicks = 0
+        textos = 0
+        teclas = 0
+        scrolls = 0
+
+        tempo_total = 0
+
+        for acao in self.acoes:
+
+            tempo_total += float(
+                acao.get("delay", 0)
+            )
+
+            tipo = acao.get("tipo")
+
+            if tipo == "click":
+                clicks += 1
+
+            elif tipo == "texto":
+                textos += 1
+
+            elif tipo == "tecla":
+                teclas += 1
+
+            elif tipo == "scroll":
+                scrolls += 1
+
+        texto = (
+            f"Ações: {len(self.acoes)} | "
+            f"Clicks: {clicks} | "
+            f"Textos: {textos} | "
+            f"Teclas: {teclas} | "
+            f"Scrolls: {scrolls} | "
+            f"Tempo: {round(tempo_total,1)}s"
+        )
+
+        self.label_estatisticas.config(
+            text=texto
+        )        
+
+    def _executar_etapa(self):
+        if self.indice_atual is None:
+            messagebox.showwarning(
+                "Executar",
+                "Selecione uma etapa."
+            )
+            return
+
+        acao = self.acoes[self.indice_atual]
+
+        try:
+            self._executar_acao(acao)
+
+            messagebox.showinfo(
+                "Executar",
+                "Etapa executada."
+            )
+
+        except Exception as e:
+            messagebox.showerror(
+                "Erro",
+                str(e)
+            )
+
+    def _mostrar_preview(self, caminho):
+
+        try:
+
+            imagem = Image.open(caminho)
+
+            imagem.thumbnail(
+                (450, 260)
+            )
+
+            foto = ImageTk.PhotoImage(imagem)
+
+            self.label_preview.configure(
+                image=foto
+            )
+
+            self.label_preview.image = foto
+
+        except Exception:
+            pass
+
     def _montar_interface(self):
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_columnconfigure(1, weight=2)
@@ -486,6 +693,20 @@ class RevisorTreinamento:
             font=("Segoe UI", 16, "bold")
         )
         titulo.grid(row=0, column=0, columnspan=2, sticky="w", padx=14, pady=(12, 6))
+
+        self.label_estatisticas = tk.Label(
+            self.root,
+            anchor="w",
+            justify="left",
+            font=("Segoe UI", 9)
+        )
+
+        self.label_estatisticas.grid(
+            row=0,
+            column=1,
+            sticky="e",
+            padx=10
+        )
 
         frame_lista = tk.Frame(self.root)
         frame_lista.grid(row=1, column=0, sticky="nsew", padx=(14, 7), pady=8)
@@ -563,8 +784,28 @@ class RevisorTreinamento:
 
         frame_botoes_editor = tk.Frame(frame_editor)
         frame_botoes_editor.grid(row=linha, column=0, columnspan=2, sticky="ew", padx=8, pady=10)
-        frame_botoes_editor.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
 
+        for i in range(8):
+            frame_botoes_editor.grid_columnconfigure(i, weight=1)
+
+        tk.Button(
+            frame_botoes_editor,
+            text="Executar etapa",
+            command=self._executar_etapa
+        ).grid(row=1, column=0, columnspan=2, sticky="ew", padx=4, pady=4)
+
+        tk.Button(
+            frame_botoes_editor,
+            text="Duplicar",
+            command=self._duplicar_etapa
+        ).grid(row=0, column=7, sticky="ew", padx=4)
+
+        tk.Button(
+            frame_botoes_editor,
+            text="Executar daqui",
+            command=self._executar_do_ponto
+        ).grid(row=1, column=2, columnspan=2, sticky="ew", padx=4, pady=4)
+                
         tk.Button(
             frame_botoes_editor,
             text="Salvar edição",
@@ -639,6 +880,28 @@ class RevisorTreinamento:
             text="Abrir pasta",
             command=self._abrir_pasta_treinamento
         ).grid(row=0, column=4, sticky="ew", padx=4)
+        frame_preview = tk.LabelFrame(
+        self.root,
+            text="Screenshot da etapa"
+        )
+
+        frame_preview.grid(
+            row=3,
+            column=0,
+            columnspan=2,
+            sticky="nsew",
+            padx=14,
+            pady=(0, 14)
+        )
+
+        self.label_preview = tk.Label(
+            frame_preview
+        )
+
+        self.label_preview.pack(
+            fill="both",
+            expand=True
+        )
 
     def _campo_readonly(self, parent, label, var, row):
         tk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=8, pady=6)
@@ -685,6 +948,8 @@ class RevisorTreinamento:
 
         for idx, acao in enumerate(self.acoes):
             self.lista.insert(tk.END, self._resumo_acao(idx, acao))
+            
+        self._atualizar_estatisticas()
 
     def _ao_selecionar(self, event=None):
         selecao = self.lista.curselection()
@@ -711,6 +976,38 @@ class RevisorTreinamento:
 
         if acao.get("tipo") == "espera":
             self.var_texto.set(str(acao.get("segundos", "")))
+        if acao.get("print"):
+
+            self._mostrar_preview(
+                acao["print"]
+            )
+        frame_preview = tk.LabelFrame(
+        self.root,
+            text="Screenshot da etapa"
+        )
+
+        frame_preview.grid(
+            row=3,
+            column=0,
+            columnspan=2,
+            sticky="nsew",
+            padx=14,
+            pady=(0, 14)
+        )
+
+        self.label_preview = tk.Label(
+            frame_preview
+        )
+
+        self.label_preview.pack(
+            fill="both",
+            expand=True
+        )
+        if acao.get("print"):
+
+            self._mostrar_preview(
+                acao["print"]
+            )
 
     def _salvar_edicao(self):
         if self.indice_atual is None:
