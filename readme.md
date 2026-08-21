@@ -1,169 +1,369 @@
-    # 🦾 RPA Process Recorder & Code Generator (V2.2)
+# 🦾 Treinador de Robôs RPA (V2.2)
 
-    > Ferramenta para gravação de eventos de periféricos (mouse e teclado), revisão visual de etapas e geração automática de scripts executáveis em Python (`pyautogui`).
+> Gravador de processos, revisor visual e gerador automático de automações Python com suporte a coordenadas adaptativas.
 
-    ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-    ![PyAutoGUI](https://img.shields.io/badge/PyAutoGUI-Automation-FF6F00?style=for-the-badge)
-    ![Pynput](https://img.shields.io/badge/Pynput-Event_Hooking-blue?style=for-the-badge)
-    ![JSON](https://img.shields.io/badge/Schema-JSON_State-000000?style=for-the-badge)
+https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white
+https://img.shields.io/badge/PyAutoGUI-Automation-FF6F00?style=for-the-badge
+https://img.shields.io/badge/Pynput-Event_Hooking-blue?style=for-the-badge
+https://img.shields.io/badge/Schema-JSON_State-000000?style=for-the-badge
 
-    ---
+---
 
-       ## 🎯 Visão Geral do Projeto
+# 🎯 Visão Geral do Projeto
 
-    O **Process Recorder & Code Generator** é uma ferramenta para captura, revisão e geração automática de automações em Python utilizando `pyautogui`.
+O **Treinador de Robôs RPA** foi desenvolvido para acelerar a criação de automações desktop através da gravação de processos executados pelo usuário.
 
-    O usuário simplesmente executa um processo real enquanto o sistema registra cliques, teclas, textos digitados, rolagens e contexto da execução.
+Em vez de mapear coordenadas, teclas e tempos manualmente, o usuário simplesmente executa o processo normalmente enquanto o sistema registra cada interação.
 
-    A versão **V2.2** introduz recursos avançados de revisão, execução parcial do fluxo e adaptação automática de coordenadas para diferentes resoluções de tela, aumentando significativamente a portabilidade das automações geradas.
+Após a gravação, um módulo de revisão permite editar, reorganizar, validar e testar as etapas antes da geração automática do script Python final.
 
-    ---
+Na versão **V2.2**, o projeto introduz:
 
-    ## ⚙️ Arquitetura do Pipeline
+- Execução individual de etapas.
+- Execução parcial do fluxo.
+- Preview visual das capturas de tela.
+- Estatísticas da gravação.
+- Metadados do ambiente.
+- Coordenadas adaptativas para diferentes resoluções.
 
-    ```text
-    [ Ações do Usuário ]
-            │
-            ▼
-    (Event Hooking via pynput)
-            │
-            ▼
-    [ Captura & Serialização ]
-            │
-            ├── Coordenadas Absolutas
-            ├── Coordenadas Percentuais
-            ├── Screenshots
-            └── Metadados do Ambiente
-            │
-            ▼
-    [ Interface de Revisão ]
-            │
-            ├── Edição
-            ├── Duplicação
-            ├── Execução Individual
-            ├── Execução Parcial
-            └── Preview das Capturas
-            │
-            ▼
-    [ Code Generator ]
-            │
-            ├── Python
-            ├── PyAutoGUI
-            └── Coordenadas Adaptativas
-            │
-            ▼
-    [ Robô Final ]
-    ```
-    ---
+---
 
-    ## ✨ Funcionalidades Principais
+# ⚙️ Arquitetura do Pipeline
 
-    ### ⏺️ 1. Motor de Gravação
-    * **Mouse Tracking:** Captura cliques (esquerdo/direito), movimentações e consolidação inteligente de scrolls consecutivos.
-    * **Keylogging Estruturado:** Gravação de digitação de texto com tratamento dinâmico de `Backspace` para salvar apenas a string corrigida.
-    * **Teclas Especiais:** Detecção de teclas de controle (`Enter`, `Tab`, `Esc`, setas direcionais, atalhos).
-    * **Context Awareness:** Captura de tempo decorrido entre etapas (*delays* reais), janela ativa no sistema operacional e *screenshots* de referência.
-    * **Metadados do Ambiente:** Registro automático de resolução da tela, escala DPI e sistema operacional.
-    * **Coordenadas Adaptativas:** Armazenamento de coordenadas absolutas e percentuais para compatibilidade entre diferentes resoluções.
+```text
+[ Ações do Usuário ]
+        │
+        ▼
+(Event Hooking via pynput)
+        │
+        ▼
+[ Captura & Serialização ]
+        │
+        ├── Coordenadas Absolutas
+        ├── Coordenadas Percentuais
+        ├── Delays
+        ├── Screenshots
+        ├── Janela Ativa
+        └── Metadados do Ambiente
+        │
+        ▼
+[ Interface de Revisão ]
+        │
+        ├── Edição
+        ├── Duplicação
+        ├── Exclusão
+        ├── Reordenação
+        ├── Execução Individual
+        ├── Execução Parcial
+        └── Preview das Capturas
+        │
+        ▼
+[ Code Generator ]
+        │
+        ├── Python
+        ├── PyAutoGUI
+        └── Coordenadas Adaptativas
+        │
+        ▼
+[ Robô Final ]
+```
 
-    ### 🛠️ 2. Módulo de Revisão e Calibração
+---
 
-    * Ajuste de coordenadas `(X,Y)`.
-    * Alteração de textos digitados.
-    * Alteração de intensidade de scroll.
-    * Modificação de delays.
-    * Ativação e desativação de etapas.
-    * Exclusão de ações desnecessárias.
-    * Duplicação rápida de etapas.
-    * Reordenação de etapas.
-    * Execução individual da etapa selecionada.
-    * Execução do fluxo a partir do ponto selecionado.
-    * Visualização de screenshots capturados durante a gravação.
-    * Estatísticas automáticas da sessão.
+# ✨ Funcionalidades Principais
 
-    ### 🐍 3. Geração de Código
+## ⏺️ 1. Motor de Gravação
 
-    * Compilação automática para Python.
-    * Geração de scripts utilizando `pyautogui`.
-    * Compatibilidade com gravações antigas.
-    * Adaptação automática de coordenadas entre diferentes resoluções de tela.
-    * Geração de código limpo e legível.
+### Mouse Tracking
 
-    ---
+- Captura de cliques esquerdo, direito e central.
+- Registro de coordenadas da ação.
+- Consolidação inteligente de eventos de scroll.
 
-    ## 🆕 Novidades da Versão V2.2
+### Keylogging Estruturado
 
-    ### ✅ Revisor Aprimorado
+- Captura de texto digitado.
+- Tratamento automático de Backspace.
+- Armazenamento apenas do texto resultante.
 
-    - Duplicação de etapas.
-    - Execução individual.
-    - Execução a partir do ponto selecionado.
-    - Preview visual das ações capturadas.
-    - Estatísticas em tempo real.
+### Teclas Especiais
 
-    ### ✅ Adaptação Automática de Resolução
+Suporte para:
 
-    O sistema passa a registrar:
+- Enter
+- Tab
+- Esc
+- Delete
+- Setas direcionais
+- Home
+- End
+- Page Up
+- Page Down
 
-    - Resolução do monitor.
-    - Escala DPI.
-    - Coordenadas absolutas.
-    - Coordenadas percentuais.
+### Context Awareness
 
-    Na geração do script, os cliques podem ser recalculados dinamicamente, permitindo maior compatibilidade entre máquinas com resoluções diferentes.
+Captura automática de:
 
-    Exemplo:
+- Delay entre etapas
+- Janela ativa
+- Timestamp
+- Screenshot da ação
 
-    ```json
-    {
-    "x": 1558,
-    "y": 175,
-    "x_percent": 0.811458,
-    "y_percent": 0.162037
-    }
+### Metadados do Ambiente
 
-    ---
+Registro automático de:
 
-    ## 🛠️ Tecnologias Utilizadas
+- Resolução da tela
+- Escala DPI
+- Sistema operacional
 
-    * **Linguagem:** Python 3.10+
-    * **Captura de Eventos (Hooks globais):** `pynput`
-    * **Mecanismo de Automação Gerado:** `pyautogui`
-    * **Armazenamento de Estado:** `json`
-    * **Manipulação de Telas & Imagens:** `pillow`
+### Coordenadas Adaptativas
 
-    ---
+Além das coordenadas absolutas:
 
+```json
+{
+  "x": 1558,
+  "y": 175
+}
+```
 
-    ## 🚧 Roadmap
+também são registradas coordenadas percentuais:
 
-    ### V2.2 ✅
-    - Execução de etapas individuais
-    - Execução parcial do fluxo
-    - Preview de screenshots
-    - Estatísticas da gravação
-    - Coordenadas adaptativas
-    - Metadados do ambiente
+```json
+{
+  "x_percent": 0.811458,
+  "y_percent": 0.162037
+}
+```
 
-    ### V3 ⏳
-    - Captura de elementos visuais
-    - Localização por imagem
-    - Fallback entre imagem e coordenadas
-    - Espera inteligente por elementos da tela
+Permitindo maior compatibilidade em resoluções diferentes.
 
-    ### V4 🔮
-    - Fluxograma automático
-    - Detecção de padrões repetidos
-    - Sugestões de otimização do processo
+---
 
-    ---
+## 🛠️ 2. Módulo de Revisão
 
-    ## 🚀 Como Executar o Projeto Localmente
+O revisor permite alterar a gravação antes da geração do script final.
 
-    ### Pré-requisitos
-    Certifique-se de ter o Python 3 instalado no sistema.
+### Edição
 
-    1. **Clone o repositório:**
-    ```bash
-    git clone [https://github.com/pwdro2brb/treinador-de-robos.git](https://github.com/pwdro2brb/treinador-de-robos.git)
-    cd treinador-de-robos
+- Coordenadas X/Y
+- Delay
+- Texto digitado
+- Intensidade de scroll
+- Status da etapa
+
+### Organização
+
+- Duplicar etapas
+- Excluir etapas
+- Mover para cima
+- Mover para baixo
+
+### Execução
+
+- Executar etapa individual
+- Executar a partir da etapa selecionada
+
+### Visualização
+
+- Preview de screenshots
+- Descrição da etapa
+- Resumo da gravação
+
+### Estatísticas
+
+Exibição automática de:
+
+- Total de ações
+- Quantidade de cliques
+- Quantidade de textos
+- Quantidade de teclas
+- Quantidade de scrolls
+- Tempo estimado da execução
+
+---
+
+## 🐍 3. Geração Automática de Código
+
+O sistema converte automaticamente o fluxo aprovado em um script Python executável.
+
+Características:
+
+- Código limpo e organizado.
+- Compatibilidade com PyAutoGUI.
+- Delays preservados.
+- Suporte a teclas especiais.
+- Suporte a atalhos.
+- Compatível com gravações antigas.
+- Suporte a coordenadas adaptativas.
+
+Exemplo gerado:
+
+```python
+x, y = coordenada_adaptada(
+    0.811458,
+    0.162037
+)
+
+pyautogui.click(
+    x,
+    y,
+    button="left"
+)
+```
+
+---
+
+# 🆕 Novidades da Versão V2.2
+
+## ✅ Revisor Aprimorado
+
+- Duplicação de etapas.
+- Execução individual.
+- Execução parcial.
+- Preview visual das ações.
+- Estatísticas em tempo real.
+
+## ✅ Adaptação Automática de Resolução
+
+O sistema agora registra:
+
+- Resolução do monitor.
+- Escala DPI.
+- Coordenadas absolutas.
+- Coordenadas percentuais.
+
+Durante a execução, os cliques podem ser recalculados dinamicamente para posições equivalentes em telas diferentes.
+
+---
+
+# 📂 Estrutura de Saída
+
+Após a gravação:
+
+```text
+robos_treinados/
+└── meu_processo/
+    ├── meu_processo.json
+    ├── meu_processo_revisado.json
+    ├── meu_processo.py
+    ├── meu_processo_revisado.py
+    └── prints/
+        ├── click_001.png
+        ├── tecla_002.png
+        └── ...
+```
+
+### Arquivos Gerados
+
+| Arquivo | Finalidade |
+|----------|------------|
+| processo.json | Fluxo original gravado |
+| processo_revisado.json | Fluxo após edição |
+| processo.py | Script gerado automaticamente |
+| processo_revisado.py | Script final revisado |
+| prints/ | Evidências visuais das etapas |
+
+---
+
+# 🛠️ Tecnologias Utilizadas
+
+- Python 3.10+
+- tkinter
+- pynput
+- pyautogui
+- pillow
+- pygetwindow
+- json
+- ctypes
+- platform
+
+---
+
+# 🚧 Roadmap
+
+## ✅ V2.0
+
+- Gravação de mouse
+- Gravação de teclado
+- Captura de screenshots
+- Exportação JSON
+- Geração automática de código
+
+## ✅ V2.1
+
+- Duplicação de etapas
+- Execução individual
+- Execução parcial
+- Preview de screenshots
+- Estatísticas da gravação
+
+## ✅ V2.2
+
+- Metadados do ambiente
+- Coordenadas percentuais
+- Coordenadas adaptativas
+- Compatibilidade entre resoluções
+
+## ⏳ V3
+
+- Captura de elementos visuais
+- Localização por imagem
+- Fallback entre imagem e coordenadas
+- Espera inteligente baseada em elementos da tela
+
+## 🔮 V4
+
+- Fluxograma automático
+- Detecção de padrões repetidos
+- Sugestões automáticas de otimização
+- Estruturas de repetição
+
+---
+
+# 🚀 Como Executar o Projeto
+
+## Pré-requisitos
+
+- Python 3.10+
+- Windows
+
+## Clone o repositório
+
+```bash
+git clone https://github.com/pwdro2brb/treinador-de-robos.git
+
+cd treinador-de-robos
+```
+
+## Instale as dependências
+
+```bash
+pip install pyautogui
+pip install pynput
+pip install pillow
+pip install pygetwindow
+```
+
+## Executar
+
+```bash
+python treinador_robos.py
+```
+
+## Encerrar gravação
+
+Durante a gravação:
+
+```text
+Pressione F12
+```
+
+para finalizar e abrir o revisor de etapas.
+
+---
+
+# 📄 Licença
+
+Projeto desenvolvido para estudos e automação de processos RPA utilizando Python.
