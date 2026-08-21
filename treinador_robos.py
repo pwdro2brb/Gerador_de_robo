@@ -7,6 +7,8 @@ from tkinter import messagebox, simpledialog
 from pathlib import Path
 from PIL import Image
 from PIL import ImageTk
+import platform
+import ctypes
 
 import pyautogui
 from pynput import mouse, keyboard
@@ -44,6 +46,66 @@ class TreinadorRobos:
         self.arquivo_py = None
         self.arquivo_py_revisado = None
 
+
+    def _obter_ambiente(self):
+
+        largura, altura = pyautogui.size()
+
+        escala = 100
+
+        try:
+            escala = ctypes.windll.shcore.GetScaleFactorForDevice(0)
+        except Exception:
+            pass
+
+        return {
+            "screen_width": largura,
+            "screen_height": altura,
+            "dpi_scale": escala,
+            "os": platform.platform()
+        }
+    # ==========================================================
+    # CALCULO AUTOMÁTICO DE COORDENADAS
+    # ==========================================================
+
+    def _calcular_coordenada_adaptada(self,acao):
+
+        largura_atual, altura_atual = pyautogui.size()
+
+        if (
+            "x_percent" not in acao
+            or
+            "y_percent" not in acao
+        ):
+
+            return (
+                acao.get("x", 0),
+                acao.get("y", 0)
+            )
+
+        x = int(
+            largura_atual *
+            float(
+                acao["x_percent"]
+            )
+        )
+
+        y = int(
+            altura_atual *
+            float(
+                acao["y_percent"]
+            )
+        )
+
+        return x, y
+    def coordenada_adaptada(x_percent,y_percent):
+
+        largura, altura = pyautogui.size()
+
+        return (
+            int(largura * x_percent),
+            int(altura * y_percent)
+        )
     # ==========================================================
     # CONTROLE PRINCIPAL
     # ==========================================================
@@ -153,12 +215,24 @@ class TreinadorRobos:
 
         nome_botao = str(button).replace("Button.", "")
 
+        largura_tela, altura_tela = pyautogui.size()
+
         acao = {
             "tipo": "click",
+
             "x": int(x),
             "y": int(y),
+
+            "x_percent":
+            round(x / largura_tela, 6),
+
+            "y_percent":
+            round(y / altura_tela, 6),
+
             "botao": nome_botao,
-            "janela": self._janela_ativa()
+
+            "janela":
+            self._janela_ativa()
         }
 
         self._registrar_acao(acao)
@@ -343,21 +417,51 @@ class TreinadorRobos:
     # JSON E SCRIPT
     # ==========================================================
     def salvar_json(self, caminho_json, acoes):
+
         dados = {
             "nome_processo": self.nome_processo,
-            "data_gravacao": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
-            "observacao": "Processo gravado pelo Treinador de Robôs MRV.",
-            "acoes": acoes
+
+            "data_gravacao":
+            datetime.datetime.now().strftime(
+                "%d/%m/%Y %H:%M:%S"
+            ),
+
+            "observacao":
+            "Processo gravado pelo Treinador de Robôs MRV.",
+
+            "ambiente":
+            self._obter_ambiente(),
+
+            "acoes":
+            acoes
         }
 
-        with open(caminho_json, "w", encoding="utf-8") as f:
-            json.dump(dados, f, ensure_ascii=False, indent=2)
+        with open(
+            caminho_json,
+            "w",
+            encoding="utf-8"
+        ) as f:
+
+            json.dump(
+                dados,
+                f,
+                ensure_ascii=False,
+                indent=2
+            )
 
     def gerar_script_py(self, caminho_py, acoes):
         linhas = []
 
         linhas.append("import time")
         linhas.append("import pyautogui")
+        linhas.append("")
+        linhas.append("def coordenada_adaptada(x_percent, y_percent):")
+        linhas.append("    largura, altura = pyautogui.size()")
+        linhas.append("    return (")
+        linhas.append("        int(largura * x_percent),")
+        linhas.append("        int(altura * y_percent)")
+        linhas.append("    )")
+        linhas.append("")
         linhas.append("")
         linhas.append("")
         linhas.append("def executar_robo_treinado():")
@@ -379,14 +483,33 @@ class TreinadorRobos:
                 linhas.append(f"    time.sleep({round(delay, 3)})")
 
             if tipo == "click":
+
+                xp = acao.get("x_percent")
+                yp = acao.get("y_percent")
+
                 x = int(acao.get("x", 0))
                 y = int(acao.get("y", 0))
+
                 botao = acao.get("botao", "left")
 
                 if botao not in ["left", "right", "middle"]:
                     botao = "left"
 
-                linhas.append(f"    pyautogui.click({x}, {y}, button='{botao}')")
+                if xp is not None and yp is not None:
+
+                    linhas.append(
+                        f"    x, y = coordenada_adaptada({xp}, {yp})"
+                    )
+
+                    linhas.append(
+                        f"    pyautogui.click(x, y, button='{botao}')"
+                    )
+
+                else:
+
+                    linhas.append(
+                        f"    pyautogui.click({x}, {y}, button='{botao}')"
+                    )
 
             elif tipo == "texto":
                 valor = acao.get("valor", "")
@@ -948,7 +1071,7 @@ class RevisorTreinamento:
 
         for idx, acao in enumerate(self.acoes):
             self.lista.insert(tk.END, self._resumo_acao(idx, acao))
-            
+
         self._atualizar_estatisticas()
 
     def _ao_selecionar(self, event=None):
